@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import styled from "@emotion/styled";
+import { css } from "@emotion/react";
 import { ReactComponent as CloudyIcon } from "./images/day-cloudy.svg";
 import { ReactComponent as RainIcon } from "./images/rain.svg";
 import { ReactComponent as AirFlowIcon } from "./images/airFlow.svg";
@@ -25,7 +26,6 @@ const WeatherApp = () => {
   `;
 
   const Location = styled.div`
-    ${(props) => console.log(props)}
     font-size: 28px;
     color: ${(props) => (props.theme === "dark" ? "#dadada" : "#212121")};
     margin-bottom: 20px;
@@ -98,26 +98,78 @@ const WeatherApp = () => {
     cursor: pointer;
   `;
 
+  const handleClick = () => {
+    fetch(
+      "https://opendata.cwb.gov.tw/api/v1/rest/datastore/O-A0003-001?Authorization=" +
+        process.env.REACT_APP_WEATHER_API_KEY +
+        "&locationName=臺北"
+    ) // 向 requestURL 發送請求
+      .then((response) => response.json()) // 取得伺服器回傳的資料並以 JSON 解析
+      .then((data) => {
+        console.log("data", data);
+        const locationData = data.records.location[0];
+
+        const weatherElements = locationData.weatherElement.reduce(
+          (neededElements, item) => {
+            if (["WDSD", "TEMP", "HUMD"].includes(item.elementName)) {
+              neededElements[item.elementName] = item.elementValue;
+            }
+            return neededElements;
+          },
+          {}
+        );
+
+        setCurrentWeather({
+          observationTime: locationData.time.obsTime,
+          locationName: locationData.locationName,
+          description: "多雲時晴",
+          temperature: weatherElements.TEMP,
+          windSpeed: weatherElements.WDSD,
+          humid: weatherElements.HUMD
+        });
+      }); // 取得解析後的 JSON 資料
+  };
+
+  const [currentWeather, setCurrentWeather] = useState({
+    observationTime: "2019-10-02 22:10:00",
+    locationName: "臺北市",
+    description: "多雲時晴",
+    temperature: 27.5,
+    windSpeed: 0.3,
+    humid: 0.88
+  });
+
+  useEffect(() => {
+    // handleClick();
+  });
+
   return (
     <Container>
       <WeatherCard>
-        <Location theme="ddd">台北市</Location>
-        <Description>多雲時晴</Description>
+        <Location theme="dark">{currentWeather.locationName}</Location>
+        <Description>
+          {new Intl.DateTimeFormat("zh-TW", {
+            hour: "numeric",
+            minute: "numeric"
+          }).format(new Date(currentWeather.observationTime))}{" "}
+          {currentWeather.description}
+        </Description>
         <CurrentWeather>
           <Temperature>
-            23 <Celsius>°C</Celsius>
+            {Math.round(currentWeather.temperature)}
+            <Celsius>°C</Celsius>
           </Temperature>
           <Cloudy />
         </CurrentWeather>
         <AirFlow>
           <AirFlowIcon />
-          23 m/h
+          {Math.round(currentWeather.humid * 100)} m/h
         </AirFlow>
         <Rain>
           <RainIcon />
-          48%
+          {currentWeather.windSpeed} %
         </Rain>
-        <Redo />
+        <Redo onClick={handleClick} />
       </WeatherCard>
     </Container>
   );
